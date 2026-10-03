@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Estimate — Yoder Performance 4x4</title>
+<style>
+  :root { --orange:#F26A21; --bg:#0f0f10; --card:#17181a; --text:#e9e7e2; --muted:#a7a39a; --line:#2a2b2e; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 18px 64px}
+  .brand{color:var(--orange);font-weight:700;text-transform:uppercase;font-size:13px;letter-spacing:.5px}
+  h1{color:#fff;font-size:24px;margin:6px 0 2px}
+  .meta{color:var(--muted);font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:18px 0}
+  table{width:100%;border-collapse:collapse}
+  td{padding:10px 0;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}
+  tr:last-child td{border-bottom:none}
+  .amt{text-align:right;white-space:nowrap}
+  .part{color:var(--muted);font-size:12px}
+  .totals td{border:none;padding:4px 0}
+  .grand{font-weight:700;font-size:19px;color:#fff}
+  .btn{display:block;width:100%;background:var(--orange);color:#fff;border:none;border-radius:10px;
+    padding:16px;font-size:17px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .btn.secondary{background:#1565C0}
+  .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .photos img{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
+  .note{color:var(--muted);font-size:13px}
+  .ok{color:#6FCF8A}
+  .err{color:#FF8A80}
+  a{color:var(--orange)}
+  #loading,#error{padding:28px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loading" class="note">Loading your estimate…</div>
+  <div id="error" class="err" style="display:none"></div>
+  <div id="content" style="display:none">
+    <img id="logo" alt="" style="max-height:64px;max-width:220px;display:none;margin-bottom:10px">
+    <div class="brand" id="shopName">Yoder Performance 4x4</div>
+    <h1>Your estimate</h1>
+    <div class="meta" id="header"></div>
+
+    <div class="card">
+      <table id="lines"></table>
+      <table class="totals" id="totals" style="margin-top:14px"></table>
+    </div>
+
+    <div class="card" id="depositCard" style="display:none">
+      <strong id="depositTitle"></strong>
+      <div class="note" id="depositNote"></div>
+    </div>
+
+    <div id="approveArea">
+      <button class="btn" id="approveBtn">Approve Work</button>
+      <div class="note" style="margin-top:8px">
+        Approving tells us to order parts and schedule your repair. Nothing is charged by this button.
+      </div>
+    </div>
+    <div id="approvedMsg" class="ok" style="display:none"></div>
+
+    <div class="card" id="photosCard" style="display:none">
+      <strong>Photos from your inspection</strong>
+      <div class="photos" id="photos" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="warrantyCard" style="display:none">
+      <strong>Warranty</strong>
+      <div class="note" id="warranty"></div>
+    </div>
+
+    <div class="note" id="contact"></div>
+  </div>
+</div>
+<script>
+  var SUPABASE = "https://idcgjuqerywseuizbnor.supabase.co";
+  var params = new URLSearchParams(location.search);
+  var id = params.get("id"), token = params.get("token");
+  var money = function (c) { return "$" + (Math.round(c) / 100).toFixed(2); };
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  };
+  function fail(msg) {
+    document.getElementById("loading").style.display = "none";
+    var e = document.getElementById("error");
+    e.textContent = msg;
+    e.style.display = "block";
+  }
+  if (!id || !token) {
+    fail("This link is missing information. Please use the link from your text message or email.");
+  } else {
+    fetch(SUPABASE + "/functions/v1/estimate-public?id=" + encodeURIComponent(id) + "&token=" + encodeURIComponent(token))
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { fail(res.d.error || "We couldn't load this estimate."); return; }
+        render(res.d);
+      })
+      .catch(function () { fail("We couldn't reach the shop's system. Please try again, or call us."); });
+  }
+
+  function render(d) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("content").style.display = "block";
+
+    if (d.shop_name) document.getElementById("shopName").textContent = d.shop_name;
+    if (d.shop_logo_url) {
+      var logo = document.getElementById("logo");
+      logo.src = d.shop_logo_url; logo.style.display = "block";
+    }
+    var bits = [];
+    if (d.customer_name) bits.push(esc(d.customer_name));
+    if (d.vehicle) bits.push(esc(d.vehicle));
+    if (d.job_number != null) bits.push("Job #" + d.job_number);
+    document.getElementById("header").innerHTML = bits.join(" &middot; ");
+
+    var rows = d.line_items.map(function (li) {
+      var qty = li.quantity != null && li.unit_price_cents != null
+        ? '<div class="part">' + li.quantity + " &times; " + money(li.unit_price_cents) + "</div>" : "";
+      var pn = li.part_number ? '<div class="part">Part #' + esc(li.part_number) + "</div>" : "";
+      return "<tr><td>" + esc(li.description) + pn + qty + '</td><td class="amt">' + money(li.amount_cents) + "</td></tr>";
+    }).join("");
+    document.getElementById("lines").innerHTML = rows ||
+      '<tr><td class="note">Your shop will add the details shortly.</td></tr>';
+
+    var t = [["Subtotal", d.subtotal_cents]];
+    if (d.tax_cents > 0) t.push(["Tax", d.tax_cents]);
+    if (d.shop_fee_cents > 0) t.push(["Shop fee", d.shop_fee_cents]);
+    if (d.hazmat_fee_cents > 0) t.push(["Hazmat fee", d.hazmat_fee_cents]);
+    var html = t.map(function (r) {
+      return '<tr><td>' + r[0] + '</td><td class="amt">' + money(r[1]) + "</td></tr>";
+    }).join("");
+    html += '<tr><td class="grand">Total</td><td class="amt grand">' + money(d.total_cents) + "</td></tr>";
+    document.getElementById("totals").innerHTML = html;
+
+    if (d.deposit_requested_cents) {
+      document.getElementById("depositCard").style.display = "block";
+      document.getElementById("depositTitle").textContent =
+        "Parts deposit requested: " + money(d.deposit_requested_cents);
+      document.getElementById("depositNote").textContent =
+        (d.deposit_description ? d.deposit_description + ". " : "") +
+        "Approve the work below and we'll text you a secure payment link for the deposit.";
+    }
+
+    if (d.photos && d.photos.length) {
+      document.getElementById("photosCard").style.display = "block";
+      document.getElementById("photos").innerHTML = d.photos.map(function (u) {
+        return '<img loading="lazy" src="' + esc(u) + '" alt="Inspection photo">';
+      }).join("");
+    }
+
+    if (d.warranty_information) {
+      document.getElementById("warrantyCard").style.display = "block";
+      document.getElementById("warranty").textContent = d.warranty_information;
+    }
+
+    var contact = [];
+    if (d.shop_name) contact.push(esc(d.shop_name));
+    if (d.shop_phone) contact.push('<a href="tel:' + esc(d.shop_phone) + '">' + esc(d.shop_phone) + "</a>");
+    document.getElementById("contact").innerHTML =
+      "Questions about this estimate? " + contact.join(" &middot; ");
+
+    if (d.already_approved) { showApproved("You've already approved this work. Thank you!"); return; }
+
+    document.getElementById("approveBtn").addEventListener("click", approve);
+  }
+
+  function showApproved(msg) {
+    document.getElementById("approveArea").style.display = "none";
+    var el = document.getElementById("approvedMsg");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+
+  function approve() {
+    var btn = document.getElementById("approveBtn");
+    btn.disabled = true;
+    btn.textContent = "Approving…";
+    // The approval itself still goes through approve-estimate, which is what records it and tells the
+    // shop. The difference is that it now happens on a press rather than on the link being opened —
+    // so a customer can read their estimate first, and a link scanner can't approve on their behalf.
+    fetch(SUPABASE + "/functions/v1/approve-estimate?id=" + encodeURIComponent(id) + "&token=" + encodeURIComponent(token))
+      .then(function (r) { return r.text(); })
+      .then(function (text) { showApproved(text || "Thank you! Your approval has been sent to the shop."); })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = "Approve Work";
+        var e = document.getElementById("error");
+        e.textContent = "We couldn't send your approval. Please try again or call the shop.";
+        e.style.display = "block";
+      });
+  }
+</script>
+</body>
+</html>
