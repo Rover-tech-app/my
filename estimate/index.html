@@ -27,6 +27,9 @@
   .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
   .photos img{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
   .note{color:var(--muted);font-size:13px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:10px;color:#fff;font-size:12px;white-space:nowrap}
+  .b-GOOD{background:#2E7D32}.b-ATTENTION{background:#C77700}.b-URGENT{background:#B3261E}
+  .b-NOT_APPLICABLE{background:#5A5A5A}
   .ok{color:#6FCF8A}
   .err{color:#FF8A80}
   a{color:var(--orange)}
@@ -60,6 +63,11 @@
       </div>
     </div>
     <div id="approvedMsg" class="ok" style="display:none"></div>
+
+    <div class="card" id="inspectionCard" style="display:none">
+      <strong>Your inspection</strong>
+      <table id="inspection" style="margin-top:8px"></table>
+    </div>
 
     <div class="card" id="photosCard" style="display:none">
       <strong>Photos from your inspection</strong>
@@ -143,6 +151,19 @@
         "Approve the work below and we'll text you a secure payment link for the deposit.";
     }
 
+    if (d.inspection_items && d.inspection_items.length) {
+      var shown = d.inspection_items.filter(function (i) { return i.condition !== "NOT_APPLICABLE"; });
+      if (shown.length) {
+        document.getElementById("inspectionCard").style.display = "block";
+        document.getElementById("inspection").innerHTML = shown.map(function (i) {
+          var label = (i.condition || "").replace(/_/g, " ").toLowerCase();
+          var notes = i.notes ? '<div class="part">' + esc(i.notes) + "</div>" : "";
+          return "<tr><td>" + esc(i.label) + notes + '</td><td class="amt">' +
+            '<span class="badge b-' + esc(i.condition) + '">' + esc(label) + "</span></td></tr>";
+        }).join("");
+      }
+    }
+
     if (d.photos && d.photos.length) {
       document.getElementById("photosCard").style.display = "block";
       document.getElementById("photos").innerHTML = d.photos.map(function (u) {
@@ -169,7 +190,26 @@
   function showApproved(msg) {
     document.getElementById("approveArea").style.display = "none";
     var el = document.getElementById("approvedMsg");
-    el.textContent = msg;
+    // approve-estimate answers in plain text, and when a deposit is owed that text carries the Stripe
+    // link. Rendered raw it's another wall of URL — the thing we just took out of the message — so any
+    // link in the reply becomes a button instead.
+    var urlMatch = String(msg).match(/https?:\/\/\S+/);
+    var words = String(msg).replace(/https?:\/\/\S+/g, "").trim();
+    el.innerHTML = "";
+    var p = document.createElement("div");
+    p.style.whiteSpace = "pre-wrap";
+    p.textContent = words;
+    el.appendChild(p);
+    if (urlMatch) {
+      var a = document.createElement("a");
+      a.href = urlMatch[0];
+      a.className = "btn secondary";
+      a.style.textAlign = "center";
+      a.style.textDecoration = "none";
+      a.style.display = "block";
+      a.textContent = "Pay parts deposit";
+      el.appendChild(a);
+    }
     el.style.display = "block";
   }
 
