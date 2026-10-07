@@ -4,6 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Your Estimate — Yoder Performance 4x4</title>
+
+<!-- Makes the link render as a tappable card in iMessage, RCS, WhatsApp and the rest, instead of a
+     bare URL. SMS itself has no buttons — this is as close as the protocol allows, and it's why the
+     message now carries one link rather than three.
+
+     Deliberately generic: a preview is fetched by the phone (and sometimes cached by a carrier)
+     WITHOUT the token, so it must never describe whose estimate it is or what it costs. The customer
+     detail appears only after the page loads with a valid token. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Yoder Performance 4x4">
+<meta property="og:title" content="Your estimate is ready to view">
+<meta property="og:description" content="Tap to see the work, the inspection photos, and approve.">
+<meta property="og:image" content="https://my.yoderperformance4x4.com/estimate-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://my.yoderperformance4x4.com/estimate/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your estimate is ready to view">
+<meta name="twitter:description" content="Tap to see the work, the inspection photos, and approve.">
+<meta name="twitter:image" content="https://my.yoderperformance4x4.com/estimate-card.png">
+<meta name="theme-color" content="#F26A21">
 <style>
   :root { --orange:#F26A21; --bg:#0f0f10; --card:#17181a; --text:#e9e7e2; --muted:#a7a39a; --line:#2a2b2e; }
   *{box-sizing:border-box}
